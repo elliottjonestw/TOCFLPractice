@@ -127,6 +127,7 @@ export default function Home() {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
   const [activeBlank, setActiveBlank] = useState("");
+  const [textSize, setTextSize] = useState(0);
   const [seconds, setSeconds] = useState(10 * readingSecondsPerQuestion);
   const [sessionQuestions, setSessionQuestions] = useState<Question[]>([]);
   const [questionCount, setQuestionCount] = useState(10);
@@ -327,7 +328,7 @@ export default function Home() {
         ? Object.values(answer || {})
         : [];
     return (
-      <main className="exam-shell">
+      <main className={`exam-shell text-size-${textSize}`}>
         <header className="exam-header">
           <button
             className="brand brand-small"
@@ -346,8 +347,36 @@ export default function Home() {
               {levelDetails[level].name} · {levelDetails[level].label}
             </span>
           </div>
-          <div className="timer">
-            <span>◷</span> {formatTime(seconds)}
+          <div className="exam-actions">
+            <div
+              className="text-size-control"
+              role="group"
+              aria-label="Text size"
+            >
+              <button
+                type="button"
+                onClick={() =>
+                  setTextSize((current) => Math.max(0, current - 1))
+                }
+                disabled={textSize === 0}
+                aria-label="Decrease text size"
+              >
+                A−
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setTextSize((current) => Math.min(2, current + 1))
+                }
+                disabled={textSize === 2}
+                aria-label="Increase text size"
+              >
+                A+
+              </button>
+            </div>
+            <div className="timer">
+              <span>◷</span> {formatTime(seconds)}
+            </div>
           </div>
         </header>
         <div className="exam-progress">

@@ -47,6 +47,22 @@
 .insertion-sentence span { display: block; margin-bottom: 4px; color: #d8693c; font-family: Arial, sans-serif; font-size: 9px; font-weight: 800; letter-spacing: .13em; }
 .answer-list button > span { width: 27px; aspect-ratio: 1; }
 .question-number { z-index: 2; pointer-events: none; }
+.exam-actions { display: flex; align-items: center; gap: 14px; }
+.text-size-control { display: inline-flex; overflow: hidden; border: 1px solid #b8cbc0; border-radius: 7px; background: #fff; }
+.text-size-control button { min-width: 35px; min-height: 31px; padding: 3px 7px; border: 0; border-right: 1px solid #d8e3dc; color: #315b52; background: transparent; font-family: Georgia, serif; font-size: 13px; font-weight: 700; }
+.text-size-control button:last-child { border-right: 0; }
+.text-size-control button:not(:disabled):hover { background: #edf7f1; color: #0e5354; }
+.text-size-control button:disabled { opacity: .38; }
+.exam-shell.text-size-1 .passage { font-size: 20px; line-height: 1.95; }
+.exam-shell.text-size-1 .question-panel h1 { font-size: 27px; }
+.exam-shell.text-size-1 .answer-list button { font-size: 17px; }
+.exam-shell.text-size-1 .insertion-sentence { font-size: 18px; }
+.exam-shell.text-size-1 .blank-helper { font-size: 14px; }
+.exam-shell.text-size-2 .passage { font-size: 23px; line-height: 2; }
+.exam-shell.text-size-2 .question-panel h1 { font-size: 31px; }
+.exam-shell.text-size-2 .answer-list button { font-size: 20px; min-height: 60px; }
+.exam-shell.text-size-2 .insertion-sentence { font-size: 21px; }
+.exam-shell.text-size-2 .blank-helper { font-size: 16px; }
 .score-ring { position: relative; border: 0; padding: 7px; background: var(--mint); }
 .score-ring::before { content: ''; position: absolute; inset: 7px; border-radius: 50%; background: #fff; }
 .score-ring strong, .score-ring span { position: relative; z-index: 1; }
@@ -89,6 +105,11 @@
 .app-shell:has(.mode-card) .question-type-picker label { flex: 1 1 0; }
 
 @media (max-width: 820px) {
+  .exam-actions { gap: 8px; }
+  .text-size-control button { min-width: 31px; min-height: 28px; padding: 2px 5px; font-size: 12px; }
+  .exam-shell.text-size-2 .passage { font-size: 20px; }
+  .exam-shell.text-size-2 .question-panel h1 { font-size: 26px; }
+  .exam-shell.text-size-2 .answer-list button { font-size: 18px; }
   .image-answer-list { grid-template-columns: 1fr; }
   .image-answer-list .scene-stimulus { min-height: 90px; display: flex; text-align: left; }
   .image-answer-list .scene-stimulus > span { font-size: 42px; }
