@@ -88,7 +88,7 @@ const starterReadingGroups: QuestionGroup[] = [
   },
 ];
 
-const starterReadingQuestions: Question[] = [
+export const starterReadingQuestions: Question[] = [
   // Band A: visual question formats
   {
     id: "a-01",

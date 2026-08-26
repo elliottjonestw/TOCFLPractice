@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   levelDetails,
   readingGroups,
@@ -30,6 +31,20 @@ const formatTime = (seconds: number) =>
     .toString()
     .padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
 const readingSecondsPerQuestion = 72;
+const firstBlank = (question?: Question) => question?.blanks?.[0] ?? "";
+const getSavedLevel = (): TocflLevel => {
+  if (typeof window === "undefined") return "A";
+  const savedLevel = window.localStorage.getItem(
+    "tocfl-practice:last-reading-level",
+  );
+  return savedLevel === "A" || savedLevel === "B" || savedLevel === "C"
+    ? savedLevel
+    : "A";
+};
+const subscribeToSavedLevel = (onStoreChange: () => void) => {
+  window.addEventListener("storage", onStoreChange);
+  return () => window.removeEventListener("storage", onStoreChange);
+};
 const typesForLevel = (level: TocflLevel) =>
   Array.from(
     new Set(
@@ -50,11 +65,26 @@ const shuffleQuestions = (questions: Question[]) => {
   return shuffled;
 };
 
+const questionBankNumbers = new Map<string, number>();
+(["A", "B", "C"] as TocflLevel[]).forEach((level) => {
+  readingQuestions
+    .filter((question) => question.level === level && question.mode === "reading")
+    .forEach((question, index) => questionBankNumbers.set(question.id, index + 1));
+});
+const groupsById = new Map(readingGroups.map((group) => [group.id, group]));
+
 function VisualStimulus({ visual }: { visual: Visual }) {
   if (visual.kind === "image")
     return (
       <figure className="visual-stimulus image-stimulus">
-        <img src={`${publicBasePath}${visual.src}`} alt={visual.alt} />
+        <Image
+          src={`${publicBasePath}${visual.src}`}
+          alt={visual.alt}
+          width={1200}
+          height={800}
+          sizes="(max-width: 820px) 100vw, 680px"
+          unoptimized
+        />
         <figcaption>{visual.caption || visual.alt}</figcaption>
       </figure>
     );
@@ -118,12 +148,17 @@ function isCorrect(question: Question, answer?: Answer) {
 }
 
 export default function Home() {
+  const savedLevel = useSyncExternalStore<TocflLevel>(
+    subscribeToSavedLevel,
+    getSavedLevel,
+    () => "A",
+  );
   const [screen, setScreen] = useState<"welcome" | "exam" | "results">(
     "welcome",
   );
-  const [level, setLevel] = useState<TocflLevel>("A");
-  const [selectedTypes, setSelectedTypes] = useState<QuestionType[]>(() =>
-    typesForLevel("A"),
+  const [selectedLevel, setSelectedLevel] = useState<TocflLevel | null>(null);
+  const [selectedTypes, setSelectedTypes] = useState<QuestionType[] | null>(
+    null,
   );
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
@@ -132,6 +167,8 @@ export default function Home() {
   const [seconds, setSeconds] = useState(10 * readingSecondsPerQuestion);
   const [sessionQuestions, setSessionQuestions] = useState<Question[]>([]);
   const [questionCount, setQuestionCount] = useState(10);
+  const level = selectedLevel ?? savedLevel;
+  const activeSelectedTypes = selectedTypes ?? typesForLevel(level);
   const availableTypes = useMemo(() => typesForLevel(level), [level]);
   const questionPool = useMemo(
     () =>
@@ -139,9 +176,9 @@ export default function Home() {
         (item) =>
           item.level === level &&
           item.mode === "reading" &&
-          selectedTypes.includes(item.type),
+          activeSelectedTypes.includes(item.type),
       ),
-    [level, selectedTypes],
+    [activeSelectedTypes, level],
   );
   const questions = screen === "welcome" ? questionPool : sessionQuestions;
   const maxQuizLength = Math.max(questionPool.length, 1);
@@ -150,15 +187,8 @@ export default function Home() {
     maxQuizLength > 1 ? ((quizLength - 1) / (maxQuizLength - 1)) * 100 : 100;
   const sessionDuration = quizLength * readingSecondsPerQuestion;
   const question = questions[index];
-  const questionBankNumber = question
-    ? readingQuestions
-        .filter(
-          (item) =>
-            item.level === question.level && item.mode === question.mode,
-        )
-        .findIndex((item) => item.id === question.id) + 1
-    : 0;
-  const group = readingGroups.find((item) => item.id === question?.groupId);
+  const questionBankNumber = question ? questionBankNumbers.get(question.id) : 0;
+  const group = question?.groupId ? groupsById.get(question.groupId) : undefined;
   const passage = question?.passage || group?.passage;
   const visual = question?.visual || group?.visual;
   const answer = question ? answers[question.id] : undefined;
@@ -167,56 +197,44 @@ export default function Home() {
   ).length;
 
   useEffect(() => {
-    if (screen !== "exam") return;
+    if (screen !== "exam" || seconds === 0) return;
     const timer = window.setInterval(
       () => setSeconds((value) => Math.max(value - 1, 0)),
       1000,
     );
     return () => window.clearInterval(timer);
-  }, [screen]);
-
-  useLayoutEffect(() => {
-    const savedLevel = window.localStorage.getItem(
-      "tocfl-practice:last-reading-level",
-    );
-    if (savedLevel !== "A" && savedLevel !== "B" && savedLevel !== "C") return;
-    setLevel(savedLevel);
-    setSelectedTypes(typesForLevel(savedLevel));
-  }, []);
-
-  useEffect(() => {
-    if (question?.blanks?.length) setActiveBlank(question.blanks[0]);
-    else setActiveBlank("");
-  }, [question?.id]);
-
-  useEffect(() => {
-    setQuestionCount((current) =>
-      Math.min(Math.max(current, 1), Math.max(questionPool.length, 1)),
-    );
-  }, [questionPool.length]);
+  }, [screen, seconds]);
 
   function begin() {
     if (!questionPool.length) return;
+    const nextQuestions = shuffleQuestions(questionPool).slice(0, quizLength);
     setAnswers({});
     setIndex(0);
     setSeconds(sessionDuration);
-    setSessionQuestions(shuffleQuestions(questionPool).slice(0, quizLength));
+    setActiveBlank(firstBlank(nextQuestions[0]));
+    setSessionQuestions(nextQuestions);
     setScreen("exam");
   }
 
   function pickLevel(next: TocflLevel) {
-    setLevel(next);
+    setSelectedLevel(next);
     setSelectedTypes(typesForLevel(next));
     window.localStorage.setItem("tocfl-practice:last-reading-level", next);
     setIndex(0);
   }
 
+  function goToQuestion(nextIndex: number) {
+    setIndex(nextIndex);
+    setActiveBlank(firstBlank(sessionQuestions[nextIndex]));
+  }
+
   function toggleType(type: QuestionType) {
-    setSelectedTypes((current) =>
-      current.includes(type)
-        ? current.filter((item) => item !== type)
-        : [...current, type],
-    );
+    setSelectedTypes((current) => {
+      const activeTypes = current ?? typesForLevel(level);
+      return activeTypes.includes(type)
+        ? activeTypes.filter((item) => item !== type)
+        : [...activeTypes, type];
+    });
     setIndex(0);
   }
 
@@ -397,7 +415,7 @@ export default function Home() {
               {questions.map((item, itemIndex) => (
                 <button
                   key={item.id}
-                  onClick={() => setIndex(itemIndex)}
+                  onClick={() => goToQuestion(itemIndex)}
                   className={`${index === itemIndex ? "active" : ""} ${isComplete(item, answers[item.id]) ? "answered" : ""}`}
                 >
                   {itemIndex + 1}
@@ -479,7 +497,7 @@ export default function Home() {
               <button
                 className="secondary-button"
                 disabled={index === 0}
-                onClick={() => setIndex((value) => value - 1)}
+                onClick={() => goToQuestion(index - 1)}
               >
                 ← Previous
               </button>
@@ -493,7 +511,7 @@ export default function Home() {
               ) : (
                 <button
                   className="primary-button"
-                  onClick={() => setIndex((value) => value + 1)}
+                  onClick={() => goToQuestion(index + 1)}
                 >
                   Next question <span>→</span>
                 </button>
@@ -606,7 +624,7 @@ export default function Home() {
                 <label key={type}>
                   <input
                     type="checkbox"
-                    checked={selectedTypes.includes(type)}
+                    checked={activeSelectedTypes.includes(type)}
                     onChange={() => toggleType(type)}
                   />
                   <span>{typeLabels[type]}</span>
