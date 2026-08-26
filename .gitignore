@@ -1,0 +1,16 @@
+# Dependencies and framework build artifacts
+node_modules/
+.next/
+dist/
+.vinext/
+
+# Local development tooling
+.wrangler/
+.env
+.env.*
+!.env.example
+*.log
+
+# Operating-system and test artifacts
+.DS_Store
+coverage/
