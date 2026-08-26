@@ -12,6 +12,7 @@ import {
 } from "./data/questions";
 
 type Answer = string | Record<string, string>;
+const publicBasePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
 const typeLabels: Record<QuestionType, string> = {
   "single-choice": "Single choice",
@@ -53,7 +54,7 @@ function VisualStimulus({ visual }: { visual: Visual }) {
   if (visual.kind === "image")
     return (
       <figure className="visual-stimulus image-stimulus">
-        <img src={visual.src} alt={visual.alt} />
+        <img src={`${publicBasePath}${visual.src}`} alt={visual.alt} />
         <figcaption>{visual.caption || visual.alt}</figcaption>
       </figure>
     );
@@ -222,15 +223,20 @@ export default function Home() {
   function choose(optionId: string) {
     if (!question) return;
     if (question.type === "word-bank-cloze") {
-      setAnswers((current) => ({
-        ...current,
-        [question.id]: {
-          ...(typeof current[question.id] === "string"
+      setAnswers((current) => {
+        const previousAnswer = current[question.id];
+        const previousBlanks: Record<string, string> =
+          typeof previousAnswer === "string" || !previousAnswer
             ? {}
-            : current[question.id]),
-          [activeBlank]: optionId,
-        },
-      }));
+            : previousAnswer;
+        return {
+          ...current,
+          [question.id]: {
+            ...previousBlanks,
+            [activeBlank]: optionId,
+          },
+        };
+      });
     } else {
       setAnswers((current) => ({ ...current, [question.id]: optionId }));
     }
