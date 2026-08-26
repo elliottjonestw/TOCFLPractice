@@ -17,7 +17,7 @@ Open `http://localhost:3000`.
 ## Question data
 
 Question types and starter examples are in [`app/data/questions.ts`](app/data/questions.ts).
-The active 300-question mock bank is in [`app/data/bulkQuestions.ts`](app/data/bulkQuestions.ts).
+The active 600-question mock bank is in [`app/data/bulkQuestions.ts`](app/data/bulkQuestions.ts).
 
 - `readingQuestions` exposes the active question bank to the app.
 - `bulkReadingQuestions` contains the level-balanced authored mock bank.
