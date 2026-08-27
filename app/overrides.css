@@ -58,11 +58,15 @@
 .exam-shell.text-size-1 .answer-list button { font-size: 17px; }
 .exam-shell.text-size-1 .insertion-sentence { font-size: 18px; }
 .exam-shell.text-size-1 .blank-helper { font-size: 14px; }
+.exam-shell.text-size-1 .image-stimulus figcaption { font-size: 16px; }
+.exam-shell.text-size-1 .question-meta span:first-child { font-size: 14px; }
 .exam-shell.text-size-2 .passage { font-size: 23px; line-height: 2; }
 .exam-shell.text-size-2 .question-panel h1 { font-size: 31px; }
 .exam-shell.text-size-2 .answer-list button { font-size: 20px; min-height: 60px; }
 .exam-shell.text-size-2 .insertion-sentence { font-size: 21px; }
 .exam-shell.text-size-2 .blank-helper { font-size: 16px; }
+.exam-shell.text-size-2 .image-stimulus figcaption { font-size: 20px; }
+.exam-shell.text-size-2 .question-meta span:first-child { font-size: 17px; }
 .score-ring { position: relative; border: 0; padding: 7px; background: var(--mint); }
 .score-ring::before { content: ''; position: absolute; inset: 7px; border-radius: 50%; background: #fff; }
 .score-ring strong, .score-ring span { position: relative; z-index: 1; }
