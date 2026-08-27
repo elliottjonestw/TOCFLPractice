@@ -291,17 +291,6 @@ export default function Home() {
       : 0;
     return (
       <main className="app-shell result-shell">
-        <header className="brand-header">
-          <button className="brand" onClick={() => setScreen("welcome")}>
-            <span className="brand-mark">華</span>
-            <span>
-              TOCFL
-              <br />
-              <em>Practice</em>
-            </span>
-          </button>
-          <span className="mode-pill">READING</span>
-        </header>
         <section className="result-card">
           <p className="eyebrow">PRACTICE COMPLETE</p>
           <h1>{levelDetails[level].name} Reading</h1>
