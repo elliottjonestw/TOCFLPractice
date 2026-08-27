@@ -8,7 +8,15 @@
  * time: no hosted TTS account, API key, or browser synthesis is involved.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -75,7 +83,12 @@ function spokenSegments(transcript) {
       segments.push(rawSegments[index]);
     }
   }
-  return segments;
+  // Two short phrases per neural-TTS pass keep a natural rhythm while making
+  // a large authored bank practical to regenerate. Each pass stays far below
+  // the long input length that previously produced static.
+  return Array.from({ length: Math.ceil(segments.length / 2) }, (_, index) =>
+    segments.slice(index * 2, index * 2 + 2).join("。"),
+  );
 }
 
 function pcmFromWav(file) {
@@ -124,53 +137,83 @@ mkdirSync(outputDirectory, { recursive: true });
 
 const temporaryDirectory = mkdtempSync(join(tmpdir(), "tocfl-listening-"));
 try {
-  let generatedRecordings = 0;
+  const recordings = [];
   for (const question of questions) {
     const [promptTranscript, questionTranscript] = question.audio.transcript.split("\n問題：");
-    const recordings = [
+    const sources = [
       { id: question.id, transcript: promptTranscript, repeats: question.audio.repeats },
       ...(questionTranscript
         ? [{ id: `${question.id}-question`, transcript: `問題：${questionTranscript}`, repeats: 1 }]
         : []),
     ];
-
-    for (const recording of recordings) {
-      const destination = join(outputDirectory, `${recording.id}.wav`);
-      const segments = spokenSegments(recording.transcript);
-      const allChunks = [];
-      let format;
-      const runs = recording.repeats === 2 ? 2 : 1;
-      console.log(`Generating ${recording.id}.wav (${segments.length} short utterances)`);
-
-      for (let run = 0; run < runs; run += 1) {
-        for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex += 1) {
-          const temporaryFile = join(temporaryDirectory, `${recording.id}-${run}-${segmentIndex}.wav`);
-          execFileSync(
-            "piper",
-            [
-              "--model",
-              model,
-              "--config",
-              config,
-              "--output-file",
-              temporaryFile,
-              "--length-scale",
-              question.level === "A" ? "1.05" : "0.9",
-              "--sentence-silence",
-              "0",
-            ],
-            { input: `${segments[segmentIndex]}。`, stdio: ["pipe", "inherit", "inherit"] },
-          );
-          const wav = pcmFromWav(temporaryFile);
-          format ??= wav.format;
-          allChunks.push(wav.data);
-          if (segmentIndex < segments.length - 1) allChunks.push(silence(0.38, format));
-        }
-        if (run < runs - 1) allChunks.push(silence(5, format));
-      }
-      writePcmWav(destination, format, allChunks);
-      generatedRecordings += 1;
+    for (const recording of sources) {
+      recordings.push({
+        ...recording,
+        level: question.level,
+        destination: join(outputDirectory, `${recording.id}.wav`),
+        segments: spokenSegments(recording.transcript),
+      });
     }
+  }
+
+  // Piper can write one WAV per input line while keeping the voice model
+  // loaded. The individual utterances remain short (preventing static), but
+  // a complete authored bank no longer pays the model-startup cost per line.
+  const utterances = [];
+  for (const recording of recordings) {
+    const runs = recording.repeats === 2 ? 2 : 1;
+    console.log(`Queueing ${recording.id}.wav (${recording.segments.length} short utterances)`);
+    for (let run = 0; run < runs; run += 1) {
+      for (const segment of recording.segments) utterances.push({ recording, segment });
+    }
+  }
+  const inputFile = join(temporaryDirectory, "utterances.txt");
+  const renderedDirectory = join(temporaryDirectory, "rendered");
+  writeFileSync(inputFile, utterances.map(({ segment }) => `${segment}。`).join("\n"));
+  mkdirSync(renderedDirectory, { recursive: true });
+  execFileSync(
+    "piper",
+    [
+      "--model",
+      model,
+      "--config",
+      config,
+      "--input-file",
+      inputFile,
+      "--output-dir",
+      renderedDirectory,
+      "--output-dir-naming",
+      "timestamp",
+      "--length-scale",
+      questions[0]?.level === "A" ? "1.05" : "0.9",
+      "--sentence-silence",
+      "0",
+    ],
+    { stdio: "ignore" },
+  );
+  const renderedFiles = readdirSync(renderedDirectory).sort();
+  if (renderedFiles.length !== utterances.length) {
+    throw new Error(`Expected ${utterances.length} utterances, received ${renderedFiles.length}.`);
+  }
+  const rendered = renderedFiles.map((file) => pcmFromWav(join(renderedDirectory, file)));
+  let renderedIndex = 0;
+  let generatedRecordings = 0;
+  for (const recording of recordings) {
+    const allChunks = [];
+    let format;
+    const runs = recording.repeats === 2 ? 2 : 1;
+    for (let run = 0; run < runs; run += 1) {
+      for (let segmentIndex = 0; segmentIndex < recording.segments.length; segmentIndex += 1) {
+        const wav = rendered[renderedIndex];
+        renderedIndex += 1;
+        format ??= wav.format;
+        allChunks.push(wav.data);
+        if (segmentIndex < recording.segments.length - 1) allChunks.push(silence(0.38, format));
+      }
+      if (run < runs - 1) allChunks.push(silence(5, format));
+    }
+    writePcmWav(recording.destination, format, allChunks);
+    generatedRecordings += 1;
   }
   console.log(`\nGenerated ${generatedRecordings} local recordings in public/audio/listening.`);
 } finally {

@@ -32,6 +32,9 @@ connection.
 `app/page.tsx` combines the Reading and Listening banks, then filters them by
 the learner's selected mode, band, and question type.
 
+The Listening bank currently contains 100 original questions for each band
+(300 total).
+
 ## Core question fields
 
 Every question requires:
