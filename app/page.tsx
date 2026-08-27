@@ -170,6 +170,55 @@ function englishExplanation(question: Question) {
   }
 }
 
+function visualDescription(visual?: Visual) {
+  if (!visual) return "";
+  if (visual.kind === "image") return visual.caption || visual.alt;
+  if (visual.kind === "scene")
+    return [visual.label, visual.detail].filter(Boolean).join(" — ");
+  if (visual.kind === "notice") return `${visual.title}: ${visual.body}`;
+  return `${visual.title}: ${visual.columns.join(", ")}`;
+}
+
+function answerDescription(question: Question, answer: Answer) {
+  const optionDescription = (optionId: string) => {
+    const option = question.options.find((item) => item.id === optionId);
+    return `Option ${optionId}${option ? `: ${option.text}` : ""}`;
+  };
+
+  if (typeof answer === "string") return optionDescription(answer);
+  return Object.entries(answer)
+    .map(([blank, optionId]) => `${blank}: ${optionDescription(optionId)}`)
+    .join("\n");
+}
+
+function aiExplanationPrompt(
+  question: Question,
+  answer: Answer,
+  visual?: Visual,
+) {
+  const options = question.options
+    .map(
+      (option) =>
+        `Option ${option.id}: ${option.text}${option.visual ? ` (image: ${visualDescription(option.visual)})` : ""}`,
+    )
+    .join("\n");
+  const correctAnswer = answerDescription(question, question.answer);
+
+  return [
+    "You are a patient TOCFL Chinese tutor. Explain this submitted quiz question in English for a Chinese learner.",
+    "State why the correct answer works, why the student's answer is right or wrong, and explain useful vocabulary or grammar briefly. Keep the answer concise and supportive.",
+    `Question type: ${question.section}`,
+    `Question: ${question.prompt}`,
+    question.passage ? `Passage: ${question.passage}` : "",
+    visual ? `Visual information: ${visualDescription(visual)}` : "",
+    `Answer options:\n${options}`,
+    `Student's submitted answer:\n${answerDescription(question, answer)}`,
+    `Correct answer:\n${correctAnswer}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 export default function Home() {
   const savedLevel = useSyncExternalStore<TocflLevel>(
     subscribeToSavedLevel,
@@ -220,6 +269,10 @@ export default function Home() {
   const answer = question ? answers[question.id] : undefined;
   const isSubmitted = question ? Boolean(submittedAnswers[question.id]) : false;
   const answerIsCorrect = question ? isCorrect(question, answer) : false;
+  const aiExplanationUrl =
+    question && answer
+      ? `https://chat.openai.com/?model=gpt-4&q=${encodeURIComponent(aiExplanationPrompt(question, answer, visual))}`
+      : "";
   const answered = questions.filter((item) =>
     submittedAnswers[item.id],
   ).length;
@@ -462,13 +515,23 @@ export default function Home() {
               })}
             </div>
             {isSubmitted && (
-              <div
-                className={`answer-feedback ${answerIsCorrect ? "correct" : "incorrect"}`}
-                role="status"
-              >
-                <strong>{answerIsCorrect ? "Correct" : "Not quite"}</strong>
-                <span>{englishExplanation(question)}</span>
-              </div>
+              <>
+                <div
+                  className={`answer-feedback ${answerIsCorrect ? "correct" : "incorrect"}`}
+                  role="status"
+                >
+                  <strong>{answerIsCorrect ? "Correct" : "Not quite"}</strong>
+                  <span>{englishExplanation(question)}</span>
+                </div>
+                <a
+                  className="secondary-button ai-explain-button"
+                  href={aiExplanationUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Explain this question with AI <span aria-hidden="true">↗</span>
+                </a>
+              </>
             )}
             <footer className="question-footer">
               <button

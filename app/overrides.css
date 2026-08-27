@@ -51,6 +51,7 @@
 .answer-feedback strong { font-size: 14px; }
 .answer-feedback.correct { border-color: #9bc9ae; background: #eef8f1; color: #275a43; }
 .answer-feedback.incorrect { border-color: #e7b09b; background: #fff3ed; color: #80442f; }
+.ai-explain-button { display: inline-flex; gap: 8px; align-items: center; margin-top: 12px; text-decoration: none; }
 .insertion-sentence { max-width: 665px; margin: 22px 0; padding: 14px 18px; border-left: 3px solid #df7045; background: #fff6ee; color: #65462e; line-height: 1.6; font-family: Georgia, "Noto Serif TC", serif; }
 .insertion-sentence span { display: block; margin-bottom: 4px; color: #d8693c; font-family: Arial, sans-serif; font-size: 9px; font-weight: 800; letter-spacing: .13em; }
 .answer-list button > span { width: 27px; aspect-ratio: 1; }
