@@ -337,27 +337,8 @@ export default function Home() {
             <span>of {questions.length}</span>
           </div>
           <p className="result-copy">
-            Your answers are ready to review. Explanations are shown below each
-            question.
+            You got {correct} out of {questions.length} correct.
           </p>
-          <div className="review-list">
-            {questions.map((item, itemIndex) => (
-              <article
-                key={item.id}
-                className={`review-item ${isCorrect(item, answers[item.id]) ? "correct" : "incorrect"}`}
-              >
-                <span>{itemIndex + 1}</span>
-                <div>
-                  <b>
-                    {isCorrect(item, answers[item.id])
-                      ? "Correct"
-                      : "Review this one"}
-                  </b>
-                  <p>{item.explanation}</p>
-                </div>
-              </article>
-            ))}
-          </div>
           <button className="primary-button" onClick={begin}>
             Try another set <span>→</span>
           </button>
