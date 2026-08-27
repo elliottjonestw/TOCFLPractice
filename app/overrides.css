@@ -43,6 +43,14 @@
 .inline-blank.active { outline: 2px solid #0e5354; outline-offset: 1px; background: #ecf6ef; }
 .blank-helper { margin: -11px 0 16px; color: #6b7e75; font-size: 12px; }
 .answer-list button:disabled { opacity: .36; cursor: not-allowed; }
+.answer-list button.submitted-correct { border-color: #6fa58a; background: #edf7f1; }
+.answer-list button.selected.submitted-incorrect { border-color: #d8754c; background: #fff1eb; }
+.answer-list button.submitted-correct > span { border-color: #4d866b; background: #4d866b; color: #fff; }
+.answer-list button.selected.submitted-incorrect > span { border-color: #c96643; background: #c96643; color: #fff; }
+.answer-feedback { display: grid; gap: 5px; max-width: 700px; margin-top: 18px; padding: 13px 16px; border: 1px solid; border-radius: 7px; font-size: 13px; line-height: 1.5; }
+.answer-feedback strong { font-size: 14px; }
+.answer-feedback.correct { border-color: #9bc9ae; background: #eef8f1; color: #275a43; }
+.answer-feedback.incorrect { border-color: #e7b09b; background: #fff3ed; color: #80442f; }
 .insertion-sentence { max-width: 665px; margin: 22px 0; padding: 14px 18px; border-left: 3px solid #df7045; background: #fff6ee; color: #65462e; line-height: 1.6; font-family: Georgia, "Noto Serif TC", serif; }
 .insertion-sentence span { display: block; margin-bottom: 4px; color: #d8693c; font-family: Arial, sans-serif; font-size: 9px; font-weight: 800; letter-spacing: .13em; }
 .answer-list button > span { width: 27px; aspect-ratio: 1; }

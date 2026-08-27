@@ -148,6 +148,28 @@ function isCorrect(question: Question, answer?: Answer) {
   );
 }
 
+function englishExplanation(question: Question) {
+  const option =
+    typeof question.answer === "string" ? `Option ${question.answer}` : "The correct choices";
+
+  switch (question.type) {
+    case "image-choice":
+      return `${option} matches the sentence.`;
+    case "picture-description":
+      return `${option} accurately describes the picture.`;
+    case "picture-cloze":
+      return `${option} best completes the sentence and matches the picture.`;
+    case "word-bank-cloze":
+      return "The correct choices complete every blank with the intended meaning and grammar.";
+    case "sentence-insertion":
+      return `${option} creates the most coherent passage.`;
+    case "cloze":
+      return `${option} best completes the sentence.`;
+    default:
+      return `${option} is supported by the information in the question.`;
+  }
+}
+
 export default function Home() {
   const savedLevel = useSyncExternalStore<TocflLevel>(
     subscribeToSavedLevel,
@@ -163,6 +185,9 @@ export default function Home() {
   );
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
+  const [submittedAnswers, setSubmittedAnswers] = useState<
+    Record<string, boolean>
+  >({});
   const [activeBlank, setActiveBlank] = useState("");
   const [textSize, setTextSize] = useState(0);
   const [seconds, setSeconds] = useState(10 * readingSecondsPerQuestion);
@@ -193,8 +218,10 @@ export default function Home() {
   const passage = question?.passage || group?.passage;
   const visual = question?.visual || group?.visual;
   const answer = question ? answers[question.id] : undefined;
+  const isSubmitted = question ? Boolean(submittedAnswers[question.id]) : false;
+  const answerIsCorrect = question ? isCorrect(question, answer) : false;
   const answered = questions.filter((item) =>
-    isComplete(item, answers[item.id]),
+    submittedAnswers[item.id],
   ).length;
 
   useEffect(() => {
@@ -210,6 +237,7 @@ export default function Home() {
     if (!questionPool.length) return;
     const nextQuestions = shuffleQuestions(questionPool).slice(0, quizLength);
     setAnswers({});
+    setSubmittedAnswers({});
     setIndex(0);
     setSeconds(sessionDuration);
     setActiveBlank(firstBlank(nextQuestions[0]));
@@ -240,7 +268,7 @@ export default function Home() {
   }
 
   function choose(optionId: string) {
-    if (!question) return;
+    if (!question || isSubmitted) return;
     if (question.type === "word-bank-cloze") {
       setAnswers((current) => {
         const previousAnswer = current[question.id];
@@ -259,6 +287,11 @@ export default function Home() {
     } else {
       setAnswers((current) => ({ ...current, [question.id]: optionId }));
     }
+  }
+
+  function submitAnswer() {
+    if (!question || !isComplete(question, answer)) return;
+    setSubmittedAnswers((current) => ({ ...current, [question.id]: true }));
   }
 
   function passageWithBlanks(value: string) {
@@ -283,8 +316,8 @@ export default function Home() {
   }
 
   if (screen === "results") {
-    const correct = questions.filter((item) =>
-      isCorrect(item, answers[item.id]),
+    const correct = questions.filter(
+      (item) => submittedAnswers[item.id] && isCorrect(item, answers[item.id]),
     ).length;
     const scorePercentage = questions.length
       ? (correct / questions.length) * 100
@@ -364,7 +397,8 @@ export default function Home() {
                 <button
                   key={item.id}
                   onClick={() => goToQuestion(itemIndex)}
-                  className={`${index === itemIndex ? "active" : ""} ${isComplete(item, answers[item.id]) ? styles.answered : ""}`}
+                  disabled={!isSubmitted && itemIndex > index}
+                  className={`${index === itemIndex ? "active" : ""} ${submittedAnswers[item.id] ? styles.answered : ""}`}
                 >
                   {itemIndex + 1}
                 </button>
@@ -424,14 +458,19 @@ export default function Home() {
                   question.type === "word-bank-cloze" &&
                   usedOptions.includes(option.id) &&
                   !selected;
+                const isCorrectOption =
+                  typeof question.answer === "string"
+                    ? question.answer === option.id
+                    : Object.values(question.answer).includes(option.id);
                 return (
                   <button
                     key={option.id}
                     onClick={() => choose(option.id)}
-                    disabled={unavailable}
-                    className={selected ? "selected" : ""}
+                    disabled={!isSubmitted && unavailable}
+                    className={`${selected ? "selected" : ""} ${isSubmitted && isCorrectOption ? "submitted-correct" : ""} ${isSubmitted && selected && !isCorrectOption ? "submitted-incorrect" : ""}`}
                     role="radio"
                     aria-checked={selected}
+                    aria-disabled={isSubmitted || unavailable}
                   >
                     <span>{option.id}</span>
                     {option.visual && <VisualStimulus visual={option.visual} />}
@@ -441,6 +480,15 @@ export default function Home() {
                 );
               })}
             </div>
+            {isSubmitted && (
+              <div
+                className={`answer-feedback ${answerIsCorrect ? "correct" : "incorrect"}`}
+                role="status"
+              >
+                <strong>{answerIsCorrect ? "Correct" : "Not quite"}</strong>
+                <span>{englishExplanation(question)}</span>
+              </div>
+            )}
             <footer className="question-footer">
               <button
                 className="secondary-button"
@@ -449,7 +497,15 @@ export default function Home() {
               >
                 ← Previous
               </button>
-              {index === questions.length - 1 ? (
+              {!isSubmitted ? (
+                <button
+                  className="primary-button"
+                  disabled={!isComplete(question, answer)}
+                  onClick={submitAnswer}
+                >
+                  Submit answer <span>→</span>
+                </button>
+              ) : index === questions.length - 1 ? (
                 <button
                   className="primary-button"
                   onClick={() => setScreen("results")}
