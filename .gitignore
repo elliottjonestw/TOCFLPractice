@@ -15,3 +15,6 @@ out/
 # Operating-system and test artifacts
 .DS_Store
 coverage/
+
+# Downloaded local neural-TTS model (audio generated from it is part of the app).
+.local-tts/

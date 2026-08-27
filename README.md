@@ -1,9 +1,8 @@
 # TOCFL Practice
 
-A local TOCFL Reading practice site. It contains small placeholder sets for
-Bands A, B, and C, covering every Reading format found in the downloaded
-reference papers. Listening is planned and already has a place in the data
-model.
+A local TOCFL practice site for the Reading and Listening components of Bands
+A, B, and C. The question bank is original practice material informed by the
+structure of official reference papers.
 
 ## Run locally
 
@@ -14,29 +13,37 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-## Question data
+The listening recordings are committed as static WAV files, so normal local
+development does not require a speech service, an API key, or an internet
+connection.
 
-Question types and starter examples are in [`app/data/questions.ts`](app/data/questions.ts).
-The active 600-question mock bank is in [`app/data/bulkQuestions.ts`](app/data/bulkQuestions.ts).
+## Question data and assets
 
-- `readingQuestions` exposes the active question bank to the app.
-- `bulkReadingQuestions` contains the level-balanced authored mock bank.
-- `readingGroups` holds a passage, notice, picture, or table shared by several
-  questions.
-- `levelDetails` controls the description shown on the home page.
+| Material | Location |
+| --- | --- |
+| Reading questions and shared groups | [`app/data/questions.ts`](app/data/questions.ts) and [`app/data/bulkQuestions.ts`](app/data/bulkQuestions.ts) |
+| Listening question source | [`app/data/listeningQuestions.json`](app/data/listeningQuestions.json) |
+| Listening JSON export | [`app/data/listeningQuestions.ts`](app/data/listeningQuestions.ts) |
+| Generated listening recordings | [`public/audio/listening/`](public/audio/listening/) |
+| Reading images | [`public/images/questions/`](public/images/questions/) |
+| Listening images | [`public/images/listening/`](public/images/listening/) |
+| Local speech generator | [`scripts/generate-listening-audio.mjs`](scripts/generate-listening-audio.mjs) |
 
-## Core fields
+`app/page.tsx` combines the Reading and Listening banks, then filters them by
+the learner's selected mode, band, and question type.
+
+## Core question fields
 
 Every question requires:
 
 | Field | Meaning |
 | --- | --- |
-| `id` | Unique ID, e.g. `b-06`. |
-| `mode` | Use `'reading'` now. `'listening'` is reserved for later. |
+| `id` | Unique ID, e.g. `lb-09`. |
+| `mode` | `'reading'` or `'listening'`. |
 | `level` | `'A'`, `'B'`, or `'C'`. |
-| `type` | One of the formats below. |
+| `type` | A supported Reading or Listening format. |
 | `section` | Short label above the question, normally in Chinese. |
-| `prompt` | The question or instruction. |
+| `prompt` | The instruction or question shown by the UI. For Listening, the spoken question belongs in `audio.transcript`. |
 | `options` | Answer choices. Option IDs can be `A`–`D`, `A`–`F`, or insertion labels such as `I`–`IV`. |
 | `answer` | The correct option ID, or a blank-to-option map for a word bank. |
 | `explanation` | Feedback displayed after the attempt. |
@@ -46,11 +53,11 @@ Optional fields:
 | Field | Use |
 | --- | --- |
 | `passage` | A text stimulus shown before the prompt. |
-| `visual` | An image, scene placeholder, notice, or table. |
-| `groupId` | Connects this question to a shared item in `readingGroups`. |
+| `visual` | An image, notice, table, or (for legacy Reading items) scene placeholder. |
+| `groupId` | Connects a Reading question to shared material in `readingGroups`. |
 | `blanks` | Blank markers for `word-bank-cloze`, e.g. `['__1__', '__2__']`. |
 | `insertionSentence` | The sentence a learner places in a `sentence-insertion` item. |
-| `audio` | Future Listening data: `{ src, transcript? }`. |
+| `audio` | Required for Listening: `{ src, transcript, repeats }`. |
 
 ## Supported Reading formats
 
@@ -61,13 +68,147 @@ Optional fields:
 | `reading-comprehension` | Text, notice, form, chart, or table comprehension. | Add `passage`, `visual`, or `groupId` as appropriate. |
 | `image-choice` | A sentence with picture answers. | Give each option a `visual`. Three options are common in Band A. |
 | `picture-description` | One picture with sentence answers. | Add a question-level `visual`. |
-| `picture-cloze` | One visual situation plus a blank question. | Add a question-level `visual`; use `groupId` for a set sharing one picture. |
-| `word-bank-cloze` | Several blanks sharing a word bank, where each word can be used once. | Add `passage`, `blanks`, 5–6 options, and an answer map. |
+| `picture-cloze` | One visual situation plus a blank question. | Add a question-level `visual`; use `groupId` for a shared picture. |
+| `word-bank-cloze` | Several blanks sharing a word bank. | Add `passage`, `blanks`, 5–6 options, and an answer map. |
 | `sentence-insertion` | Choose where a supplied sentence belongs in a passage. | Add `passage`, `insertionSentence`, and position options such as I–IV. |
+
+## Listening formats
+
+All Listening recordings are generated locally and need to play before the
+learner can submit. `repeats: 2` creates the two-play behaviour used for the
+shorter Band A recordings; the other current formats play once.
+
+| Band | Type | Use it for | Choices and playback |
+| --- | --- | --- | --- |
+| A | `listening-picture-response` | Listen and choose the matching pictured response. | Three visual choices; recording plays twice. |
+| A | `listening-single-dialogue` | A short exchange matched to a picture. | Three visual choices; recording plays twice. |
+| A | `listening-multiple-dialogue` | A longer multi-turn exchange followed by a question. | Three visual choices; dialogue plays twice, then the learner plays the question separately. |
+| A | `listening-dialogue` | A dialogue followed by a spoken question. | Three text choices; dialogue plays once, then the learner plays the question separately. |
+| B / C | `listening-dialogue` | A dialogue followed by a spoken question. | Four text choices; dialogue and question are separate players. |
+| B / C | `listening-monologue` | A short announcement, report, or monologue followed by a question. | Four text choices; passage and question are separate players. |
+
+For Band A picture-response items, the UI shows choices as `1`, `2`, and
+`3`. The recording likewise speaks `一`, `二`, and `三`, rather than
+letter names or the longer `選項一` form.
+
+## Add a Listening question
+
+Add authored source data to `app/data/listeningQuestions.json`. Keep the
+recording's dialogue or passage separate from its spoken question with a
+newline followed by `問題：`:
+
+```json
+{
+  "id": "lb-09",
+  "mode": "listening",
+  "level": "B",
+  "type": "listening-monologue",
+  "section": "第二部分・段落理解",
+  "prompt": "聽完問題後，選出最合適的答案。",
+  "options": [
+    { "id": "A", "text": "星期一" },
+    { "id": "B", "text": "星期二" },
+    { "id": "C", "text": "星期三" },
+    { "id": "D", "text": "星期四" }
+  ],
+  "answer": "B",
+  "explanation": "錄音明確說明活動改到星期二。",
+  "audio": {
+    "src": "/audio/listening/lb-09.wav",
+    "transcript": "活動原定星期一舉行，因為下雨改到星期二。\n問題：活動改到星期幾？",
+    "repeats": 1
+  }
+}
+```
+
+When the transcript contains `\n問題：`, the generator writes two clips:
+
+- `lb-09.wav` contains only the dialogue or passage.
+- `lb-09-question.wav` contains only the spoken question.
+
+The listening UI unlocks the question player after the main clip completes,
+then requires both clips to finish before the learner answers. If a question
+does not need a separately spoken question, omit that delimiter and only its
+main audio file is used.
+
+The `src` value must match the question ID and generated filename. Use `1`,
+`2`, and `3` in Band A visual-option text if the recording reads those
+numbers; the application preserves the internal option IDs for scoring.
+
+## Generate or regenerate Listening audio
+
+Run this after adding or changing Listening transcripts:
+
+```bash
+npm run generate:listening-audio
+```
+
+For a quick edit-and-check cycle, regenerate selected IDs only:
+
+```bash
+TOCFL_AUDIO_IDS=la-05,lb-03 npm run generate:listening-audio
+```
+
+The script uses the local Piper neural Mandarin voice
+`zh_CN-huayan-medium`. On its first run it downloads Piper and the voice model
+to `.local-tts/`, which is intentionally ignored by Git. It synthesizes short
+utterances and joins them with natural pauses, including a short pause after
+spoken answer numbers. This avoids the static that can occur when a long
+recording is synthesized in one pass.
+
+Do not hand-edit the generated WAV files. Change the JSON transcript, run the
+generator, and test the relevant item in the browser. The generated assets in
+`public/audio/listening/` are what the app serves.
+
+## Add visual material
+
+Use real generated or uploaded images for Listening visual choices, not emoji
+scene placeholders. Place the asset under `public/images/listening/` and give
+it a useful Chinese `alt` description:
+
+```ts
+visual: {
+  kind: 'image',
+  src: '/images/listening/cinema.png',
+  alt: '電影院入口與售票櫃檯',
+}
+```
+
+For a visual-choice item, put one image inside every option. The image card
+already displays the option number/letter, so do not repeat the same label in
+the image caption or option text.
+
+```ts
+options: [
+  {
+    id: 'A',
+    text: '1',
+    visual: { kind: 'image', src: '/images/listening/car-city.png', alt: '城市街道上的汽車' },
+  },
+  {
+    id: 'B',
+    text: '2',
+    visual: { kind: 'image', src: '/images/listening/cinema.png', alt: '電影院入口' },
+  },
+]
+```
+
+Other useful `visual` shapes for Reading material are:
+
+```ts
+visual: { kind: 'notice', title: '公告標題', body: '公告內容', footer: '補充說明' }
+
+visual: {
+  kind: 'table',
+  title: '表格標題',
+  columns: ['項目', '數量'],
+  rows: [['甲', '10'], ['乙', '15']],
+}
+```
 
 ## Add a normal Reading question
 
-Copy this into `readingQuestions` and change the content:
+Copy this into the Reading bank and change the content:
 
 ```ts
 {
@@ -89,46 +230,11 @@ Copy this into `readingQuestions` and change the content:
 }
 ```
 
-## Add visual material
-
-`visual` has four supported shapes. Use `image` for a real uploaded image and
-the other formats for structured placeholder or information visuals.
-
-```ts
-visual: { kind: 'image', src: '/images/a-06.jpg', alt: '學生在圖書館讀書' }
-
-visual: { kind: 'scene', emoji: '🏊', label: '游泳池', detail: '朋友們正在游泳' }
-
-visual: { kind: 'notice', title: '公告標題', body: '公告內容', footer: '補充說明' }
-
-visual: {
-  kind: 'table',
-  title: '表格標題',
-  columns: ['項目', '數量'],
-  rows: [['甲', '10'], ['乙', '15']],
-}
-```
-
-For an `image-choice`, put one visual inside each option:
-
-```ts
-{
-  id: 'a-06', mode: 'reading', level: 'A', type: 'image-choice',
-  section: '看句子選圖片', prompt: '他正在吃晚餐。',
-  options: [
-    { id: 'A', text: '圖 A', visual: { kind: 'scene', emoji: '🍽️', label: '吃飯' } },
-    { id: 'B', text: '圖 B', visual: { kind: 'scene', emoji: '🚌', label: '等公車' } },
-    { id: 'C', text: '圖 C', visual: { kind: 'scene', emoji: '📚', label: '看書' } },
-  ],
-  answer: 'A', explanation: '圖片 A 顯示正在吃飯。',
-}
-```
-
-## Add a shared group
+## Add a shared Reading group
 
 Create the shared material once in `readingGroups`, then attach each related
-question through its `groupId`. This is the format used when one notice, chart,
-or passage has several questions.
+question through its `groupId`. This is useful when one notice, chart, or
+passage has several questions.
 
 ```ts
 export const readingGroups: QuestionGroup[] = [
@@ -140,72 +246,18 @@ export const readingGroups: QuestionGroup[] = [
 ];
 ```
 
-```ts
-{
-  id: 'b-07', mode: 'reading', level: 'B', type: 'reading-comprehension',
-  section: '公告閱讀', groupId: 'b-library-notice',
-  prompt: '圖書館什麼時候休館？',
-  options: [/* options */], answer: 'A', explanation: '……',
-}
-```
-
-## Add a word-bank cloze
-
-The `answer` is an object whose keys are the blank markers. The UI prevents a
-learner from selecting the same word for two blanks.
-
-```ts
-{
-  id: 'a-07', mode: 'reading', level: 'A', type: 'word-bank-cloze',
-  section: '選詞填空',
-  prompt: '請用下方選項完成短文。每個選項只能用一次。',
-  passage: '我 __1__ 中文，也 __2__ 日本語。',
-  blanks: ['__1__', '__2__'],
-  options: [
-    { id: 'A', text: '會說' }, { id: 'B', text: '會寫' }, { id: 'C', text: '不會' },
-  ],
-  answer: { '__1__': 'A', '__2__': 'B' },
-  explanation: '依句意完成兩個空格。',
-}
-```
-
-## Add a sentence insertion item
-
-Use visible markers in the passage and make their IDs match the options.
-
-```ts
-{
-  id: 'c-04', mode: 'reading', level: 'C', type: 'sentence-insertion',
-  section: '句子插入',
-  prompt: '請選出最適合插入這個句子的位置。',
-  insertionSentence: '因此，這項做法逐漸受到重視。',
-  passage: '第一段內容。I 第二段內容。II 第三段內容。III',
-  options: [
-    { id: 'I', text: '位置 I' }, { id: 'II', text: '位置 II' },
-    { id: 'III', text: '位置 III' },
-  ],
-  answer: 'II',
-  explanation: '說明前後句之間的邏輯。',
-}
-```
-
 ## Authoring checklist
 
-1. Use a unique ID and the correct band.
+1. Use a unique ID, correct band, mode, and type.
 2. Keep a single correct answer; word-bank cloze items use one answer per blank.
-3. Use `groupId` instead of copying a shared passage or notice into many questions.
-4. Give every real image useful Chinese `alt` text.
-5. Add a concise explanation that refers to the evidence.
-6. Run `npm run build` after changes.
-
-## Listening later
-
-Listening questions will use the same options, groups, visuals, and answer
-rules. Set `mode: 'listening'` and add `audio: { src, transcript? }`. The
-current interface intentionally displays Reading items only.
+3. Use `groupId` instead of copying shared Reading material into many questions.
+4. Give every image useful Chinese `alt` text; Listening visual options should use generated/uploaded images rather than emoji.
+5. For Listening, include `audio.src`, `audio.transcript`, and `repeats`; use `\n問題：` whenever the spoken question needs its own player.
+6. Regenerate the affected audio, then listen through the whole item for clear speech and correct pauses.
+7. Add a concise explanation that refers to the evidence, then run `npm run lint` and `npm run build`.
 
 ## Reference papers
 
-Representative official Band A, B, and C Reading papers are in
-`reference-papers/`. Use them to study formats, but create original practice
-content rather than copying official questions.
+Representative official Band A, B, and C papers are in `reference-papers/`.
+Use them to study formats, but create original practice content rather than
+copying official questions.

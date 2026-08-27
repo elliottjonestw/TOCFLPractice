@@ -24,7 +24,12 @@ export type QuestionType =
   | "picture-description"
   | "picture-cloze"
   | "word-bank-cloze"
-  | "sentence-insertion";
+  | "sentence-insertion"
+  | "listening-picture-response"
+  | "listening-single-dialogue"
+  | "listening-multiple-dialogue"
+  | "listening-dialogue"
+  | "listening-monologue";
 
 export type QuestionGroup = {
   id: string;
@@ -57,7 +62,12 @@ export type Question = {
   options: Option[];
   answer: string | Record<string, string>;
   explanation: string;
-  audio?: { src: string; transcript?: string };
+  audio?: {
+    src: string;
+    transcript?: string;
+    /** Number of times the prompt is spoken within the generated recording. */
+    repeats?: 1 | 2;
+  };
 };
 
 const starterReadingGroups: QuestionGroup[] = [

@@ -43,6 +43,20 @@
 .inline-blank.active { outline: 2px solid #0e5354; outline-offset: 1px; background: #ecf6ef; }
 .blank-helper { margin: -11px 0 16px; color: #6b7e75; font-size: 12px; }
 .answer-list button:disabled { opacity: .36; cursor: not-allowed; }
+.listening-player { display: flex; align-items: center; justify-content: space-between; gap: 20px; max-width: 700px; margin: 25px 0 26px; padding: 17px 18px; border: 1px solid #b8d3c6; border-radius: 10px; background: linear-gradient(115deg, #edf7f1, #fbfcf8); }
+.listening-question-player { margin-top: -13px; border-color: #e8c78f; background: linear-gradient(115deg, #fff9ee, #fffdf8); }
+.listening-player > div { display: grid; gap: 4px; }
+.listening-player-label { color: #df7045; font-size: 9px; font-weight: 800; letter-spacing: .13em; }
+.listening-player b { color: #244c44; font-size: 14px; }
+.listening-player small { color: #688077; font-size: 12px; }
+.recording-button { flex: 0 0 auto; min-width: 145px; min-height: 42px; border: 0; border-radius: 7px; background: var(--pine); color: #fff; font-size: 12px; font-weight: 800; }
+.recording-button:not(:disabled):hover { background: #0b4546; }
+.recording-button:disabled { background: #78988d; color: #f8fffb; }
+.listening-instruction { color: #38574e; }
+.listening-transcript { max-width: 700px; margin-top: 20px; padding: 17px 19px; border-left: 3px solid #e4a25e; background: #fff9ef; color: #4b5348; }
+.listening-transcript > span { color: #c66a3f; font-size: 9px; font-weight: 800; letter-spacing: .13em; }
+.listening-transcript p { margin: 9px 0 14px; white-space: pre-line; font-size: 14px; line-height: 1.8; }
+.listening-transcript h1 { margin: 0; font-size: 17px; }
 .answer-list button.submitted-correct { border-color: #6fa58a; background: #edf7f1; }
 .answer-list button.selected.submitted-incorrect { border-color: #d8754c; background: #fff1eb; }
 .answer-list button.submitted-correct > span { border-color: #4d866b; background: #4d866b; color: #fff; }
@@ -137,4 +151,6 @@
   .app-shell:has(.mode-card) .level-buttons span { font-size: 10px; }
   .app-shell:has(.mode-card) .question-type-picker > div { display: grid; grid-template-columns: 1fr; }
   .quiz-length-picker label { width: 100%; }
+  .listening-player { align-items: stretch; flex-direction: column; }
+  .recording-button { width: 100%; }
 }

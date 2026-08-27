@@ -10,7 +10,8 @@
     "build": "next build",
     "build:sites": "vite build",
     "start": "npx serve out",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "generate:listening-audio": "node scripts/generate-listening-audio.mjs"
   },
   "dependencies": {
     "next": "16.2.6",

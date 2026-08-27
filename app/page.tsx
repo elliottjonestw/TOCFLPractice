@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import styles from "./page.module.css";
 import {
   levelDetails,
@@ -9,9 +9,11 @@ import {
   readingQuestions,
   type Question,
   type QuestionType,
+  type TestMode,
   type TocflLevel,
   type Visual,
 } from "./data/questions";
+import { listeningQuestions } from "./data/listeningQuestions";
 
 type Answer = string | Record<string, string>;
 const publicBasePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
@@ -25,6 +27,11 @@ const typeLabels: Record<QuestionType, string> = {
   "picture-cloze": "Picture cloze",
   "word-bank-cloze": "Shared word bank",
   "sentence-insertion": "Sentence insertion",
+  "listening-picture-response": "Picture response",
+  "listening-single-dialogue": "Single-turn dialogue",
+  "listening-multiple-dialogue": "Four-turn dialogue",
+  "listening-dialogue": "Dialogue",
+  "listening-monologue": "Monologue",
 };
 
 const formatTime = (seconds: number) =>
@@ -32,12 +39,14 @@ const formatTime = (seconds: number) =>
     .toString()
     .padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
 const readingSecondsPerQuestion = 72;
+const listeningSecondsPerQuestion = 78;
+const allQuestions = [...readingQuestions, ...listeningQuestions];
 const firstBlank = (question?: Question) => question?.blanks?.[0] ?? "";
 const getSavedLevel = (): TocflLevel => {
   if (typeof window === "undefined") return "A";
-  const savedLevel = window.localStorage.getItem(
-    "tocfl-practice:last-reading-level",
-  );
+  const savedLevel =
+    window.localStorage.getItem("tocfl-practice:last-level") ||
+    window.localStorage.getItem("tocfl-practice:last-reading-level");
   return savedLevel === "A" || savedLevel === "B" || savedLevel === "C"
     ? savedLevel
     : "A";
@@ -46,11 +55,11 @@ const subscribeToSavedLevel = (onStoreChange: () => void) => {
   window.addEventListener("storage", onStoreChange);
   return () => window.removeEventListener("storage", onStoreChange);
 };
-const typesForLevel = (level: TocflLevel) =>
+const typesForLevel = (level: TocflLevel, mode: TestMode) =>
   Array.from(
     new Set(
-      readingQuestions
-        .filter((item) => item.level === level && item.mode === "reading")
+      allQuestions
+        .filter((item) => item.level === level && item.mode === mode)
         .map((item) => item.type),
     ),
   );
@@ -68,8 +77,8 @@ const shuffleQuestions = (questions: Question[]) => {
 
 const questionBankNumbers = new Map<string, number>();
 (["A", "B", "C"] as TocflLevel[]).forEach((level) => {
-  readingQuestions
-    .filter((question) => question.level === level && question.mode === "reading")
+  allQuestions
+    .filter((question) => question.level === level)
     .forEach((question, index) => questionBankNumbers.set(question.id, index + 1));
 });
 const groupsById = new Map(readingGroups.map((group) => [group.id, group]));
@@ -229,6 +238,7 @@ export default function Home() {
     "welcome",
   );
   const [selectedLevel, setSelectedLevel] = useState<TocflLevel | null>(null);
+  const [selectedMode, setSelectedMode] = useState<TestMode>("reading");
   const [selectedTypes, setSelectedTypes] = useState<QuestionType[] | null>(
     null,
   );
@@ -242,25 +252,42 @@ export default function Home() {
   const [seconds, setSeconds] = useState(10 * readingSecondsPerQuestion);
   const [sessionQuestions, setSessionQuestions] = useState<Question[]>([]);
   const [questionCount, setQuestionCount] = useState(10);
+  const [recordingPlays, setRecordingPlays] = useState(0);
+  const [isRecordingPlaying, setIsRecordingPlaying] = useState(false);
+  const [recordingFinished, setRecordingFinished] = useState(false);
+  const [questionRecordingPlays, setQuestionRecordingPlays] = useState(0);
+  const [isQuestionRecordingPlaying, setIsQuestionRecordingPlaying] =
+    useState(false);
+  const [questionRecordingFinished, setQuestionRecordingFinished] =
+    useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const questionAudioRef = useRef<HTMLAudioElement>(null);
   const level = selectedLevel ?? savedLevel;
-  const activeSelectedTypes = selectedTypes ?? typesForLevel(level);
-  const availableTypes = useMemo(() => typesForLevel(level), [level]);
+  const activeSelectedTypes = selectedTypes ?? typesForLevel(level, selectedMode);
+  const availableTypes = useMemo(
+    () => typesForLevel(level, selectedMode),
+    [level, selectedMode],
+  );
   const questionPool = useMemo(
     () =>
-      readingQuestions.filter(
+      allQuestions.filter(
         (item) =>
           item.level === level &&
-          item.mode === "reading" &&
+          item.mode === selectedMode &&
           activeSelectedTypes.includes(item.type),
       ),
-    [activeSelectedTypes, level],
+    [activeSelectedTypes, level, selectedMode],
   );
   const questions = screen === "welcome" ? questionPool : sessionQuestions;
   const maxQuizLength = Math.max(questionPool.length, 1);
   const quizLength = Math.min(Math.max(questionCount, 1), maxQuizLength);
   const quizLengthPercentage =
     maxQuizLength > 1 ? ((quizLength - 1) / (maxQuizLength - 1)) * 100 : 100;
-  const sessionDuration = quizLength * readingSecondsPerQuestion;
+  const secondsPerQuestion =
+    selectedMode === "listening"
+      ? listeningSecondsPerQuestion
+      : readingSecondsPerQuestion;
+  const sessionDuration = quizLength * secondsPerQuestion;
   const question = questions[index];
   const questionBankNumber = question ? questionBankNumbers.get(question.id) : 0;
   const group = question?.groupId ? groupsById.get(question.groupId) : undefined;
@@ -294,25 +321,46 @@ export default function Home() {
     setIndex(0);
     setSeconds(sessionDuration);
     setActiveBlank(firstBlank(nextQuestions[0]));
+    setRecordingPlays(0);
+    setIsRecordingPlaying(false);
+    setRecordingFinished(false);
+    setQuestionRecordingPlays(0);
+    setIsQuestionRecordingPlaying(false);
+    setQuestionRecordingFinished(false);
     setSessionQuestions(nextQuestions);
     setScreen("exam");
   }
 
   function pickLevel(next: TocflLevel) {
     setSelectedLevel(next);
-    setSelectedTypes(typesForLevel(next));
-    window.localStorage.setItem("tocfl-practice:last-reading-level", next);
+    setSelectedTypes(typesForLevel(next, selectedMode));
+    window.localStorage.setItem("tocfl-practice:last-level", next);
+    setIndex(0);
+  }
+
+  function pickMode(next: TestMode) {
+    setSelectedMode(next);
+    setSelectedTypes(typesForLevel(level, next));
+    setQuestionCount(10);
     setIndex(0);
   }
 
   function goToQuestion(nextIndex: number) {
+    audioRef.current?.pause();
+    questionAudioRef.current?.pause();
     setIndex(nextIndex);
     setActiveBlank(firstBlank(sessionQuestions[nextIndex]));
+    setRecordingPlays(0);
+    setIsRecordingPlaying(false);
+    setRecordingFinished(false);
+    setQuestionRecordingPlays(0);
+    setIsQuestionRecordingPlaying(false);
+    setQuestionRecordingFinished(false);
   }
 
   function toggleType(type: QuestionType) {
     setSelectedTypes((current) => {
-      const activeTypes = current ?? typesForLevel(level);
+      const activeTypes = current ?? typesForLevel(level, selectedMode);
       return activeTypes.includes(type)
         ? activeTypes.filter((item) => item !== type)
         : [...activeTypes, type];
@@ -343,8 +391,40 @@ export default function Home() {
   }
 
   function submitAnswer() {
-    if (!question || !isComplete(question, answer)) return;
+    if (
+      !question ||
+      !isComplete(question, answer) ||
+      (question.mode === "listening" &&
+        (recordingPlays === 0 ||
+          (question.audio?.transcript?.includes("\n問題：") &&
+            !questionRecordingFinished)))
+    )
+      return;
     setSubmittedAnswers((current) => ({ ...current, [question.id]: true }));
+  }
+
+  function playRecording() {
+    if (!audioRef.current || !question?.audio || recordingPlays > 0) return;
+    audioRef.current.currentTime = 0;
+    setRecordingPlays(1);
+    setIsRecordingPlaying(true);
+    void audioRef.current.play().catch(() => setIsRecordingPlaying(false));
+  }
+
+  function playQuestionRecording() {
+    if (
+      !questionAudioRef.current ||
+      !question?.audio ||
+      !recordingFinished ||
+      questionRecordingPlays > 0
+    )
+      return;
+    questionAudioRef.current.currentTime = 0;
+    setQuestionRecordingPlays(1);
+    setIsQuestionRecordingPlaying(true);
+    void questionAudioRef.current
+      .play()
+      .catch(() => setIsQuestionRecordingPlaying(false));
   }
 
   function passageWithBlanks(value: string) {
@@ -379,7 +459,7 @@ export default function Home() {
       <main className="app-shell result-shell">
         <section className="result-card">
           <p className="eyebrow">PRACTICE COMPLETE</p>
-          <h1>{levelDetails[level].name} Reading</h1>
+          <h1>{levelDetails[level].name} {selectedMode === "listening" ? "Listening" : "Reading"}</h1>
           <div
             className="score-ring"
             style={{
@@ -404,6 +484,11 @@ export default function Home() {
   }
 
   if (screen === "exam" && question) {
+    const isListening = question.mode === "listening";
+    const hasVisualOptions = question.options.some((option) => option.visual);
+    const hasSeparateQuestion = Boolean(
+      question.audio?.transcript?.includes("\n問題："),
+    );
     const usedOptions =
       question.type === "word-bank-cloze" && typeof answer !== "string"
         ? Object.values(answer || {})
@@ -412,7 +497,7 @@ export default function Home() {
       <main className={`exam-shell text-size-${textSize}`}>
         <header className={`exam-header ${styles.examHeader}`}>
           <div className={`exam-title ${styles.examTitle}`}>
-            <b>Reading Practice</b>
+            <b>{isListening ? "Listening Practice" : "Reading Practice"}</b>
             <span>
               {levelDetails[level].name} · {levelDetails[level].label}
             </span>
@@ -457,6 +542,87 @@ export default function Home() {
             {group && (
               <div className="group-label">{group.title} · shared material</div>
             )}
+            {isListening && question.audio && (
+              <section className="listening-player" aria-label="Listening recording">
+                <div>
+                  <span className="listening-player-label">OFFICIAL-STYLE PLAYBACK</span>
+                  <b>{question.audio.repeats === 2 ? "The recording includes two plays." : "The recording plays once."}</b>
+                  <small>
+                    {recordingPlays
+                      ? isRecordingPlaying
+                        ? "Recording in progress…"
+                        : recordingFinished
+                          ? hasSeparateQuestion
+                            ? "Now play the question."
+                            : "Recording played. Choose your answer."
+                          : "Finish the recording to continue."
+                      : "Start the recording before you answer."}
+                  </small>
+                </div>
+                <button
+                  type="button"
+                  className="recording-button"
+                  onClick={playRecording}
+                  disabled={recordingPlays > 0}
+                >
+                  {isRecordingPlaying ? "◼ Playing" : recordingPlays ? "✓ Played" : "▶ Play recording"}
+                </button>
+                <audio
+                  ref={audioRef}
+                  src={`${publicBasePath}${question.audio.src}`}
+                  preload="auto"
+                  onEnded={() => {
+                    setIsRecordingPlaying(false);
+                    setRecordingFinished(true);
+                  }}
+                  onPause={() => setIsRecordingPlaying(false)}
+                />
+              </section>
+            )}
+            {isListening && question.audio && hasSeparateQuestion && (
+              <section
+                className="listening-player listening-question-player"
+                aria-label="Question recording"
+              >
+                <div>
+                  <span className="listening-player-label">STEP 2 · QUESTION</span>
+                  <b>Play the spoken question.</b>
+                  <small>
+                    {!recordingFinished
+                      ? "Available after the dialogue or passage finishes."
+                      : questionRecordingPlays
+                        ? isQuestionRecordingPlaying
+                          ? "Question in progress…"
+                          : questionRecordingFinished
+                            ? "Question played. Choose your answer."
+                            : "Finish the question to continue."
+                        : "Listen to the question before answering."}
+                  </small>
+                </div>
+                <button
+                  type="button"
+                  className="recording-button"
+                  onClick={playQuestionRecording}
+                  disabled={!recordingFinished || questionRecordingPlays > 0}
+                >
+                  {isQuestionRecordingPlaying
+                    ? "◼ Playing"
+                    : questionRecordingPlays
+                      ? "✓ Played"
+                      : "▶ Play question"}
+                </button>
+                <audio
+                  ref={questionAudioRef}
+                  src={`${publicBasePath}/audio/listening/${question.id}-question.wav`}
+                  preload="auto"
+                  onEnded={() => {
+                    setIsQuestionRecordingPlaying(false);
+                    setQuestionRecordingFinished(true);
+                  }}
+                  onPause={() => setIsQuestionRecordingPlaying(false)}
+                />
+              </section>
+            )}
             {visual && <VisualStimulus visual={visual} />}
             {question.insertionSentence && (
               <aside className="insertion-sentence">
@@ -471,18 +637,23 @@ export default function Home() {
                 {passageWithBlanks(passage)}
               </article>
             )}
-            <h1>{question.prompt}</h1>
+            {!isListening && <h1>{question.prompt}</h1>}
+            {isListening && !isSubmitted && (
+              <h1 className="listening-instruction">
+                Listen to the recording, then choose the best answer.
+              </h1>
+            )}
             {question.type === "word-bank-cloze" && (
               <p className="blank-helper">
                 Choose a blank in the passage, then choose one unused answer.
               </p>
             )}
             <div
-              className={`answer-list ${question.type === "image-choice" ? "image-answer-list" : ""}`}
+              className={`answer-list ${hasVisualOptions ? "image-answer-list" : ""}`}
               role="radiogroup"
               aria-label="Answer options"
             >
-              {question.options.map((option) => {
+              {question.options.map((option, optionIndex) => {
                 const selected =
                   question.type === "word-bank-cloze" &&
                   typeof answer !== "string"
@@ -506,16 +677,31 @@ export default function Home() {
                     aria-checked={selected}
                     aria-disabled={isSubmitted || unavailable}
                   >
-                    <span>{option.id}</span>
+                    <span>
+                      {isListening &&
+                      question.type === "listening-picture-response"
+                        ? optionIndex + 1
+                        : option.id}
+                    </span>
                     {option.visual && <VisualStimulus visual={option.visual} />}
                     <b>{option.visual ? option.text : null}</b>
-                    {!option.visual && option.text}
+                    {!option.visual &&
+                      (isListening && question.type === "listening-picture-response"
+                        ? "Audio option"
+                        : option.text)}
                   </button>
                 );
               })}
             </div>
             {isSubmitted && (
               <>
+                {isListening && question.audio?.transcript && (
+                  <article className="listening-transcript">
+                    <span>REVEAL TRANSCRIPT</span>
+                    <p>{question.audio.transcript}</p>
+                    <h1>{question.prompt}</h1>
+                  </article>
+                )}
                 <div
                   className={`answer-feedback ${answerIsCorrect ? "correct" : "incorrect"}`}
                   role="status"
@@ -544,7 +730,12 @@ export default function Home() {
               {!isSubmitted ? (
                 <button
                   className="primary-button"
-                  disabled={!isComplete(question, answer)}
+                  disabled={
+                    !isComplete(question, answer) ||
+                    (isListening &&
+                      (recordingPlays === 0 ||
+                        (hasSeparateQuestion && !questionRecordingFinished)))
+                  }
                   onClick={submitAnswer}
                 >
                   Submit answer <span>→</span>
@@ -641,7 +832,7 @@ export default function Home() {
           </h1>
           <p className="hero-description">
             Focused TOCFL practice that feels calm, clear, and close to test
-            day. Start with Reading; Listening is on its way.
+            day. Train the reading and listening formats you will meet on test day.
           </p>
           <div className="hero-note">
             <span>⌁</span>
@@ -660,21 +851,27 @@ export default function Home() {
             </div>
           </div>
           <div className="mode-select">
-            <button className="mode-option selected">
+            <button
+              className={`mode-option ${selectedMode === "reading" ? "selected" : ""}`}
+              onClick={() => pickMode("reading")}
+            >
               <span className="mode-icon">文</span>
               <span>
                 <b>Reading</b>
-                <small>閱讀測驗 · Available now</small>
+                <small>閱讀測驗 · Original practice questions</small>
               </span>
-              <i>✓</i>
+              <i>{selectedMode === "reading" ? "✓" : "→"}</i>
             </button>
-            <button className="mode-option disabled" disabled>
-              <span className="mode-icon listen">◖</span>
+            <button
+              className={`mode-option ${selectedMode === "listening" ? "selected" : ""}`}
+              onClick={() => pickMode("listening")}
+            >
+              <span className="mode-icon listen">聽</span>
               <span>
                 <b>Listening</b>
-                <small>聽力測驗 · Coming soon</small>
+                <small>聽力測驗 · Original practice questions</small>
               </span>
-              <i>→</i>
+              <i>{selectedMode === "listening" ? "✓" : "→"}</i>
             </button>
           </div>
           <div className="level-select">
@@ -742,7 +939,7 @@ export default function Home() {
             disabled={!questions.length}
           >
             {questions.length
-              ? `Begin Reading practice · ${quizLength} questions · ${formatTime(sessionDuration)}`
+              ? `Begin ${selectedMode === "listening" ? "Listening" : "Reading"} practice · ${quizLength} questions · ${formatTime(sessionDuration)}`
               : "Select at least one question type"}{" "}
             <span>→</span>
           </button>
