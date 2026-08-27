@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import styles from "./page.module.css";
 import {
   levelDetails,
   readingGroups,
@@ -411,12 +412,12 @@ export default function Home() {
         <div className="exam-layout">
           <aside className="question-nav">
             <p>QUESTIONS</p>
-            <div className="number-grid">
+            <div className={`number-grid ${styles.numberGrid}`}>
               {questions.map((item, itemIndex) => (
                 <button
                   key={item.id}
                   onClick={() => goToQuestion(itemIndex)}
-                  className={`${index === itemIndex ? "active" : ""} ${isComplete(item, answers[item.id]) ? "answered" : ""}`}
+                  className={`${index === itemIndex ? "active" : ""} ${isComplete(item, answers[item.id]) ? styles.answered : ""}`}
                 >
                   {itemIndex + 1}
                 </button>
@@ -424,7 +425,7 @@ export default function Home() {
             </div>
             <div className="nav-key">
               <i className="key-current" /> Current{" "}
-              <i className="key-answered" /> Answered
+              <i className={`key-answered ${styles.answeredKey}`} /> Answered
             </div>
           </aside>
           <section className="question-panel">

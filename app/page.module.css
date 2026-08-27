@@ -1,0 +1,10 @@
+.numberGrid button.answered:not(:global(.active)) {
+  background: var(--mint);
+  border-color: #94b9aa;
+  color: var(--pine);
+  font-weight: 700;
+}
+
+.answeredKey {
+  background: var(--mint);
+}
