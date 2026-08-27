@@ -354,54 +354,12 @@ export default function Home() {
         : [];
     return (
       <main className={`exam-shell text-size-${textSize}`}>
-        <header className="exam-header">
-          <button
-            className="brand brand-small"
-            onClick={() => setScreen("welcome")}
-          >
-            <span className="brand-mark">華</span>
-            <span>
-              TOCFL
-              <br />
-              <em>Practice</em>
-            </span>
-          </button>
-          <div className="exam-title">
+        <header className={`exam-header ${styles.examHeader}`}>
+          <div className={`exam-title ${styles.examTitle}`}>
             <b>Reading Practice</b>
             <span>
               {levelDetails[level].name} · {levelDetails[level].label}
             </span>
-          </div>
-          <div className="exam-actions">
-            <div
-              className="text-size-control"
-              role="group"
-              aria-label="Text size"
-            >
-              <button
-                type="button"
-                onClick={() =>
-                  setTextSize((current) => Math.max(0, current - 1))
-                }
-                disabled={textSize === 0}
-                aria-label="Decrease text size"
-              >
-                A−
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setTextSize((current) => Math.min(2, current + 1))
-                }
-                disabled={textSize === 2}
-                aria-label="Increase text size"
-              >
-                A+
-              </button>
-            </div>
-            <div className="timer">
-              <span>◷</span> {formatTime(seconds)}
-            </div>
           </div>
         </header>
         <div className="exam-progress">
@@ -520,6 +478,37 @@ export default function Home() {
             </footer>
           </section>
           <aside className="exam-summary">
+            <div className={styles.summaryActions}>
+              <div
+                className="text-size-control"
+                role="group"
+                aria-label="Text size"
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    setTextSize((current) => Math.max(0, current - 1))
+                  }
+                  disabled={textSize === 0}
+                  aria-label="Decrease text size"
+                >
+                  A−
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setTextSize((current) => Math.min(2, current + 1))
+                  }
+                  disabled={textSize === 2}
+                  aria-label="Increase text size"
+                >
+                  A+
+                </button>
+              </div>
+              <div className="timer">
+                <span>◷</span> {formatTime(seconds)}
+              </div>
+            </div>
             <div>
               <p>ANSWERED</p>
               <strong>

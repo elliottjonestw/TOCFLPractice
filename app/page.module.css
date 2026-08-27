@@ -8,3 +8,29 @@
 .answeredKey {
   background: var(--mint);
 }
+
+.examHeader {
+  position: relative;
+}
+
+.examTitle {
+  left: 50%;
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.summaryActions {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.summaryActions :global(.text-size-control) {
+  display: flex;
+  width: 100%;
+}
+
+.summaryActions :global(.text-size-control) button {
+  flex: 1;
+  min-width: 0;
+}
